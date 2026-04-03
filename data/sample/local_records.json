@@ -1,0 +1,75 @@
+[
+  {
+    "record_id": "sample-exa-001",
+    "connector": "local_json",
+    "source_kind": "local_json",
+    "title": "EXA-001 operational status",
+    "body": "Sample EXA-001 belongs to project P-ALPHA. Genotype Slc17a7-Cre. Imaging completed on 2026-03-20. Registration completed on 2026-03-23. Annotation completed on 2026-03-26. Reconstruction has not started because proofreading staffing is constrained. Current blocker is proofreading backlog.",
+    "source_uri": "local://sample/EXA-001",
+    "entity_keys": ["EXA-001", "P-ALPHA", "Slc17a7-Cre"],
+    "metadata": {
+      "sample_id": "EXA-001",
+      "project_id": "P-ALPHA",
+      "genotype": "Slc17a7-Cre",
+      "pipeline_stage": "annotation_complete",
+      "annotation_status": "complete",
+      "reconstruction_status": "pending",
+      "blocker": "proofreading backlog",
+      "updated_at": "2026-03-26"
+    }
+  },
+  {
+    "record_id": "sample-exa-002",
+    "connector": "local_json",
+    "source_kind": "local_json",
+    "title": "EXA-002 operational status",
+    "body": "Sample EXA-002 belongs to project P-BETA. Genotype Gad2-Cre. Imaging, registration, annotation, proofreading, and reconstruction are complete. Fourteen reconstructed cells were delivered on 2026-03-27.",
+    "source_uri": "local://sample/EXA-002",
+    "entity_keys": ["EXA-002", "P-BETA", "Gad2-Cre"],
+    "metadata": {
+      "sample_id": "EXA-002",
+      "project_id": "P-BETA",
+      "genotype": "Gad2-Cre",
+      "pipeline_stage": "reconstruction_complete",
+      "annotation_status": "complete",
+      "reconstruction_status": "complete",
+      "reconstructed_cell_count": 14,
+      "updated_at": "2026-03-27"
+    }
+  },
+  {
+    "record_id": "sample-exa-003",
+    "connector": "local_json",
+    "source_kind": "local_json",
+    "title": "EXA-003 processing delay",
+    "body": "Sample EXA-003 belongs to project P-GAMMA. Genotype Ai14. Imaging completed on 2026-03-25 but downstream processing is stalled. Registration failed quality control on 2026-03-28 due to low signal-to-noise ratio and striping artifacts. Annotation has not started.",
+    "source_uri": "local://sample/EXA-003",
+    "entity_keys": ["EXA-003", "P-GAMMA", "Ai14"],
+    "metadata": {
+      "sample_id": "EXA-003",
+      "project_id": "P-GAMMA",
+      "genotype": "Ai14",
+      "pipeline_stage": "registration_failed",
+      "annotation_status": "not_started",
+      "reconstruction_status": "not_started",
+      "blocker": "registration QC failure",
+      "updated_at": "2026-03-28"
+    }
+  },
+  {
+    "record_id": "program-summary-2026-03-31",
+    "connector": "local_json",
+    "source_kind": "local_json",
+    "title": "Weekly reconstruction program summary",
+    "body": "As of 2026-03-31, the active ExA-SPIM reconstruction program includes three tracked samples. One sample has completed reconstruction, one sample has completed annotation but is waiting on proofreading capacity, and one sample is stalled at registration quality control.",
+    "source_uri": "local://summary/weekly-2026-03-31",
+    "entity_keys": ["weekly-summary", "2026-03-31"],
+    "metadata": {
+      "report_date": "2026-03-31",
+      "active_sample_count": 3,
+      "reconstruction_complete_count": 1,
+      "annotation_complete_reconstruction_pending_count": 1,
+      "registration_failed_count": 1
+    }
+  }
+]

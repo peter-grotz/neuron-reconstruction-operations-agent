@@ -1,0 +1,16 @@
+[
+  {
+    "key": "ops_updates",
+    "team_name": "Neuron Reconstruction Ops",
+    "channel_name": "Announcements",
+    "description": "Operational updates for imaging, tracing, and registrations.",
+    "include_replies": true
+  },
+  {
+    "key": "reconstruction_triage",
+    "team_name": "Neuron Reconstruction Ops",
+    "channel_name": "Triage",
+    "description": "Queue management and blocker discussion.",
+    "include_replies": true
+  }
+]
