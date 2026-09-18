@@ -8,3 +8,12 @@ CO_API/
 .DS_Store
 secrets/
 exaspim_neuron_reconstruction_agent.md
+
+# defense-in-depth for credential files
+*_token
+*_token.txt
+*.pem
+*_secret*
+nmcp_api*
+codeocean_api*
+.env.*

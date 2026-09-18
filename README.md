@@ -6,6 +6,8 @@ The current scaffold is production-oriented infrastructure rather than a finishe
 
 - a read-only connector layer for Smartsheet, S3, and local JSON exports
 - optional Microsoft Teams channel ingestion through Microsoft Graph
+- Code Ocean capsule and computation-outcome ingestion, plus live run-status and (opt-in) run-launch tools
+- Neuron Morphology Community Portal (NMCP) specimen ingestion and a live read-only GraphQL query tool
 - a canonical ingestion pipeline that turns heterogeneous records into normalized documents and chunks
 - a persistent SQLite-backed local knowledge store for deployment and offline testing
 - a retrieval and synthesis layer with citations, fact separation, and traceability
@@ -31,6 +33,8 @@ The system is organized into five layers:
    - `SmartsheetConnector` for operational sheets
    - `TeamsConnector` for selected Microsoft Teams channels
    - `S3Connector` for manifests, logs, metadata, and text-like payloads
+   - `CodeOceanConnector` for capsule metadata and recent computation outcomes
+   - `MorphologyPortalConnector` for portal specimens (label, id, soma count, genotype)
 
 2. Normalization and ingestion
    Raw records are converted into a canonical `NormalizedDocument` model with stable identifiers, metadata, entity keys, and provenance. Documents are then chunked for retrieval and stored locally.
@@ -46,7 +50,12 @@ The system is organized into five layers:
    - inferred observations
    - citations and supporting chunks
 
-   A tool registry provides an MCP-style execution surface for search and entity context lookup.
+   A tool registry provides an MCP-style execution surface. Alongside the offline
+   knowledge tools (`search_knowledge`, `get_entity_context`, `list_sources`) it can
+   expose live tools when credentials resolve:
+   - `code_ocean_run_status` — status of a computation, reduced to an honest verdict
+   - `code_ocean_launch_run` — launch a computation (only when launching is enabled)
+   - `morphology_portal_query` — read-only GraphQL against the portal
 
 5. API and CLI
    The same application services are exposed through FastAPI and a local CLI.
@@ -139,7 +148,7 @@ When you provide credentials later, the main steps are:
    ]
    ```
 
-   A ready-to-edit example lives at [teams_channels.example.json](/Users/peter.grotz/Documents/ExM_Reconstructions_Project_Agent/data/sample/teams_channels.example.json).
+   A ready-to-edit example lives at [teams_channels.example.json](data/sample/teams_channels.example.json).
 
    Recommended Microsoft Graph permissions:
    - `Team.ReadBasic.All`
@@ -151,17 +160,55 @@ When you provide credentials later, the main steps are:
    - https://learn.microsoft.com/en-us/graph/api/channel-list-messages?view=graph-rest-1.0
    - https://learn.microsoft.com/en-us/graph/teams-changenotifications-chatmessage
 
-4. Optional external LLM
+4. Code Ocean (AIND deployment)
+   - provide the API token via `secrets/codeocean_api_token` (gitignored) or `EXASPIM_CODE_OCEAN_API_TOKEN`
+   - list the capsules to index in `EXASPIM_CODE_OCEAN_CAPSULES` as a JSON array:
+
+     ```json
+     [{"key": "snapshot", "capsule_id": "<uuid>", "name": "Snapshot generation",
+       "description": "Converts processed reconstruction assets into the portal layout"}]
+     ```
+
+   - the connector indexes capsule metadata and the most recent computations, tagging
+     each run with a verdict; `code_ocean_run_status` reads a run live
+   - launching is off by default. Set `EXASPIM_CODE_OCEAN_ALLOW_LAUNCH=true` only where
+     spending compute is intended — this is the one tool that mutates the deployment
+   - run status is judged from `state`, `end_status`, `exit_code`, and `has_results`
+     together; `has_results == false` is treated as failure even when the other fields
+     look like success, because a terminated machine has been observed to report
+     completed / exit 0 / succeeded while syncing nothing
+
+5. Neuron Morphology Community Portal (NMCP)
+   - published specimens are visible anonymously; set `EXASPIM_MORPHOLOGY_PORTAL_API_TOKEN`
+     or `secrets/nmcp_api_token` (gitignored) to reach private records
+   - the connector indexes specimens (label, id, soma count, genotype); optionally scope
+     to one collection with `EXASPIM_MORPHOLOGY_PORTAL_COLLECTION_FILTER`
+   - `morphology_portal_query` runs read-only GraphQL. Portal mutations (createSpecimen,
+     importSomas, deleteSpecimen) are intentionally *not* exposed as tools — they write
+     to shared, user-visible data and belong with a human operator
+   - auth is a raw `Authorization: <token>` header; `Bearer <token>` is silently ignored
+     and leaves the caller anonymous
+
+6. Optional external LLM
    - set `EXASPIM_OPENAI_API_KEY`
    - install extras: `pip install -e ".[llm]"`
    - wire a responder implementation that calls your preferred model
 
 ## Security Model
 
-- All connectors are implemented as read-only adapters.
-- The system stores only local analytical artifacts in `exports/`.
-- No code path writes back to Smartsheet, S3, or any operational source.
-- Credentials are read from environment variables and not persisted into the document store.
+- Every connector is a read-only adapter, and the query and portal-query tools are
+  read-only. The single exception is `code_ocean_launch_run`, which is off unless
+  `EXASPIM_CODE_OCEAN_ALLOW_LAUNCH=true`; nothing writes back to Smartsheet, S3, Teams,
+  or the morphology portal.
+- Credentials are resolved at runtime from environment variables or gitignored token
+  files, never from committed code, and never written into the document store, logs, or
+  indexed records.
+- Token files default to the gitignored `secrets/` directory (`secrets/codeocean_api_token`,
+  `secrets/nmcp_api_token`). `.gitignore` also blocks `*_token`, `*_secret*`, `.env`, and
+  related patterns as defense in depth.
+- `.env.example` ships only empty placeholders; copy it to `.env` (gitignored) and fill
+  in locally.
+- The system stores only local analytical artifacts under `exports/`.
 
 ## Deployment Notes
 

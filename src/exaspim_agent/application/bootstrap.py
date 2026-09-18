@@ -4,10 +4,17 @@ from dataclasses import dataclass
 
 from exaspim_agent.application.ingestion import IngestionService
 from exaspim_agent.application.query_service import QueryService
-from exaspim_agent.application.tools import GetEntityContextTool, ListSourcesTool, SearchKnowledgeTool, ToolRegistry
+from exaspim_agent.application.tools import GetEntityContextTool, ListSourcesTool, SearchKnowledgeTool, ToolRegistry, Tool
+from exaspim_agent.application.live_tools import (
+    CodeOceanLaunchTool,
+    CodeOceanStatusTool,
+    MorphologyPortalQueryTool,
+)
 from exaspim_agent.config import Settings
 from exaspim_agent.connectors.base import DataConnector
+from exaspim_agent.connectors.code_ocean import CodeOceanClient, CodeOceanConnector
 from exaspim_agent.connectors.local_files import LocalJsonConnector
+from exaspim_agent.connectors.morphology_portal import MorphologyPortalClient, MorphologyPortalConnector
 from exaspim_agent.connectors.s3 import S3Connector
 from exaspim_agent.connectors.smartsheet import SmartsheetConnector
 from exaspim_agent.connectors.teams import TeamsConnector
@@ -68,6 +75,37 @@ def build_container(settings: Settings) -> ServiceContainer:
             )
         )
 
+    live_tools: list[Tool] = []
+
+    code_ocean_token = settings.resolve_code_ocean_token()
+    if code_ocean_token:
+        co_client = CodeOceanClient(code_ocean_token, settings.code_ocean_base_url)
+        if settings.code_ocean_capsules:
+            connectors.append(
+                CodeOceanConnector(
+                    client=co_client,
+                    capsules=settings.code_ocean_capsules,
+                    max_computations=settings.code_ocean_max_computations,
+                )
+            )
+        live_tools.append(CodeOceanStatusTool(co_client))
+        if settings.code_ocean_allow_launch:
+            live_tools.append(CodeOceanLaunchTool(co_client))
+
+    portal_token = settings.resolve_morphology_portal_token()
+    # The portal serves published data to anonymous callers, so a connector is
+    # useful even without a token; the token only unlocks unpublished/private records.
+    portal_client = MorphologyPortalClient(settings.morphology_portal_base_url, portal_token)
+    if settings.morphology_portal_collection_filter is not None or portal_token:
+        connectors.append(
+            MorphologyPortalConnector(
+                client=portal_client,
+                collection_filter=settings.morphology_portal_collection_filter,
+                max_specimens=settings.morphology_portal_max_specimens,
+            )
+        )
+    live_tools.append(MorphologyPortalQueryTool(portal_client))
+
     store = SQLiteDocumentStore(settings.sqlite_path)
     query_service = QueryService(
         retriever=KeywordRetriever(store),
@@ -79,6 +117,7 @@ def build_container(settings: Settings) -> ServiceContainer:
             SearchKnowledgeTool(query_service),
             GetEntityContextTool(store),
             ListSourcesTool(store),
+            *live_tools,
         ]
     )
     ingestion_service = IngestionService(

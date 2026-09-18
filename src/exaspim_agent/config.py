@@ -25,6 +25,13 @@ class TeamsChannelConfig(BaseModel):
     include_replies: bool = True
 
 
+class CodeOceanCapsuleConfig(BaseModel):
+    key: str
+    capsule_id: str
+    name: str
+    description: Optional[str] = None
+
+
 class Settings(BaseModel):
     app_name: str = "ExA-SPIM Operations Agent"
     environment: str = "dev"
@@ -58,6 +65,20 @@ class Settings(BaseModel):
     s3_max_objects_per_prefix: int = 25
 
     openai_api_key: Optional[str] = None
+
+    code_ocean_api_token: Optional[str] = None
+    code_ocean_token_file: Optional[Path] = Path("secrets/codeocean_api_token")
+    code_ocean_base_url: str = "https://codeocean.allenneuraldynamics.org/api/v1"
+    code_ocean_capsules: list[CodeOceanCapsuleConfig] = Field(default_factory=list)
+    code_ocean_max_computations: int = 10
+    # Launching runs is off unless explicitly enabled; polling and reads always work.
+    code_ocean_allow_launch: bool = False
+
+    morphology_portal_api_token: Optional[str] = None
+    morphology_portal_token_file: Optional[Path] = Path("secrets/nmcp_api_token")
+    morphology_portal_base_url: str = "https://morphology.allenneuraldynamics.org/graphql"
+    morphology_portal_collection_filter: Optional[str] = None
+    morphology_portal_max_specimens: int = 500
 
     @classmethod
     def from_env(cls, env_file: str = ".env") -> "Settings":
@@ -120,6 +141,37 @@ class Settings(BaseModel):
             "s3_prefixes": _load_list_env("EXASPIM_S3_PREFIXES", env_map),
             "s3_max_objects_per_prefix": int(_env_value("EXASPIM_S3_MAX_OBJECTS_PER_PREFIX", env_map, 25)),
             "openai_api_key": _optional_env_value("EXASPIM_OPENAI_API_KEY", env_map),
+            "code_ocean_api_token": _optional_env_value("EXASPIM_CODE_OCEAN_API_TOKEN", env_map),
+            "code_ocean_token_file": _optional_path_env_value(
+                "EXASPIM_CODE_OCEAN_TOKEN_FILE", env_map, Path("secrets/codeocean_api_token")
+            ),
+            "code_ocean_base_url": _env_value(
+                "EXASPIM_CODE_OCEAN_BASE_URL",
+                env_map,
+                "https://codeocean.allenneuraldynamics.org/api/v1",
+            ),
+            "code_ocean_capsules": _load_code_ocean_capsules_env("EXASPIM_CODE_OCEAN_CAPSULES", env_map),
+            "code_ocean_max_computations": int(
+                _env_value("EXASPIM_CODE_OCEAN_MAX_COMPUTATIONS", env_map, 10)
+            ),
+            "code_ocean_allow_launch": _load_bool_env("EXASPIM_CODE_OCEAN_ALLOW_LAUNCH", env_map),
+            "morphology_portal_api_token": _optional_env_value(
+                "EXASPIM_MORPHOLOGY_PORTAL_API_TOKEN", env_map
+            ),
+            "morphology_portal_token_file": _optional_path_env_value(
+                "EXASPIM_MORPHOLOGY_PORTAL_TOKEN_FILE", env_map, Path("secrets/nmcp_api_token")
+            ),
+            "morphology_portal_base_url": _env_value(
+                "EXASPIM_MORPHOLOGY_PORTAL_BASE_URL",
+                env_map,
+                "https://morphology.allenneuraldynamics.org/graphql",
+            ),
+            "morphology_portal_collection_filter": _optional_env_value(
+                "EXASPIM_MORPHOLOGY_PORTAL_COLLECTION_FILTER", env_map
+            ),
+            "morphology_portal_max_specimens": int(
+                _env_value("EXASPIM_MORPHOLOGY_PORTAL_MAX_SPECIMENS", env_map, 500)
+            ),
         }
         return cls(**values)
 
@@ -150,6 +202,22 @@ class Settings(BaseModel):
             token = self.teams_token_file.read_text().strip()
             return token or None
         return None
+
+    def resolve_code_ocean_token(self) -> Optional[str]:
+        return _resolve_token(self.code_ocean_api_token, self.code_ocean_token_file)
+
+    def resolve_morphology_portal_token(self) -> Optional[str]:
+        return _resolve_token(self.morphology_portal_api_token, self.morphology_portal_token_file)
+
+
+def _resolve_token(inline: Optional[str], token_file: Optional[Path]) -> Optional[str]:
+    """Prefer an inline value, else read a gitignored token file. Never logged."""
+    if inline:
+        return inline.strip() or None
+    if token_file and token_file.exists():
+        token = token_file.read_text().strip()
+        return token or None
+    return None
 
 
 @lru_cache(maxsize=1)
@@ -295,3 +363,23 @@ def _default_smartsheet_sheets() -> list[SmartsheetSheetConfig]:
             ],
         ),
     ]
+
+
+def _load_bool_env(key: str, env_map: dict[str, str]) -> bool:
+    value = _env_value(key, env_map, "false")
+    return str(value).strip().lower() in ("1", "true", "yes", "on")
+
+
+def _load_code_ocean_capsules_env(
+    key: str, env_map: dict[str, str]
+) -> list[CodeOceanCapsuleConfig]:
+    value = _env_value(key, env_map, None)
+    if value in (None, ""):
+        return []
+    try:
+        parsed = json.loads(str(value))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{key} must be a JSON array of capsule config objects.") from exc
+    if not isinstance(parsed, list):
+        raise ValueError(f"{key} must be a JSON array of capsule config objects.")
+    return [CodeOceanCapsuleConfig(**item) for item in parsed]

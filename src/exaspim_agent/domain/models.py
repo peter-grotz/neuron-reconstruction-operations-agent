@@ -10,6 +10,8 @@ class SourceKind(str, Enum):
     SMARTSHEET = "smartsheet"
     TEAMS = "teams"
     S3 = "s3"
+    CODE_OCEAN = "code_ocean"
+    MORPHOLOGY_PORTAL = "morphology_portal"
     LOCAL_JSON = "local_json"
     MANUAL = "manual"
 
