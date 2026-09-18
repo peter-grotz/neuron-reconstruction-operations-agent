@@ -2,7 +2,7 @@
 
 This repository contains a deployable, read-only agent framework for ExA-SPIM neuron reconstruction operations. It is built to ingest data from sources such as Smartsheet, S3, and local exports, normalize that data into a canonical document model, index it in a persistent local store, and answer questions with source attribution.
 
-The current scaffold is production-oriented infrastructure rather than a finished domain model. It gives you:
+The current scaffold is production-oriented infrastructure:
 
 - a read-only connector layer for Smartsheet, S3, and local JSON exports
 - optional Microsoft Teams channel ingestion through Microsoft Graph
